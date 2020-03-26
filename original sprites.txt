@@ -1,0 +1,383 @@
+import pygame,math,time,random
+from required import Animation, SpriteGroup
+pygame.init()
+kunai_list = SpriteGroup()
+player_list = SpriteGroup()
+robot_list = SpriteGroup()
+fireball_list = SpriteGroup()
+
+class Player(pygame.sprite.Sprite):
+    def __init__(self):
+        pygame.sprite.Sprite.__init__(self)
+        # Create states for the Player - run, idle, throw, jump, fall etc
+        self.image = {
+            "idle": Animation([
+                "png/Idle__000.png",
+                "png/Idle__001.png",
+                "png/Idle__002.png",
+                "png/Idle__003.png",
+                "png/Idle__004.png",
+                "png/Idle__005.png",
+                "png/Idle__006.png",
+                "png/Idle__007.png",
+                "png/Idle__008.png",
+                "png/Idle__009.png",
+            ],100,True),
+
+            "run": Animation([
+                "png/Run__000.png",
+                "png/Run__001.png",
+                "png/Run__002.png",
+                "png/Run__003.png",
+                "png/Run__004.png",
+                "png/Run__005.png",
+                "png/Run__006.png",
+                "png/Run__007.png",
+                "png/Run__008.png",
+                "png/Run__009.png",
+            ],100,True),
+
+            "throw": Animation([
+                "png/Throw__000.png",
+                "png/Throw__001.png",
+                "png/Throw__002.png",
+                "png/Throw__003.png",
+                "png/Throw__004.png",
+                "png/Throw__005.png",
+                "png/Throw__006.png",
+                "png/Throw__007.png",
+                "png/Throw__008.png",
+                "png/Throw__009.png",
+            ],100,True),
+
+            "jump": Animation([
+                "png/Jump__000.png",
+                "png/Jump__001.png",
+                "png/Jump__002.png",
+                "png/Jump__003.png",
+                "png/Jump__004.png",
+                "png/Jump__005.png",
+            ],100,True),
+
+            "fall": Animation([
+                "png/Jump__006.png",
+                "png/Jump__007.png",
+                "png/Jump__008.png",
+                "png/Jump__009.png",
+            ],100,True),
+            "die": Animation([
+                "png/Dead__000.png",
+                "png/Dead__001.png",
+                "png/Dead__002.png",
+                "png/Dead__003.png",
+                "png/Dead__004.png",
+                "png/Dead__005.png",
+                "png/Dead__006.png",
+                "png/Dead__007.png",
+                "png/Dead__008.png",
+                "png/Dead__009.png",
+            ],100,True),
+            "attack": Animation([
+                "png/Attack__000.png",
+                "png/Attack__001.png",
+                "png/Attack__002.png",
+                "png/Attack__003.png",
+                "png/Attack__004.png",
+                "png/Attack__005.png",
+                "png/Attack__006.png",
+                "png/Attack__007.png",
+                "png/Attack__008.png",
+                "png/Attack__009.png",
+            ],100,True)
+        }
+        self.state = self.image["idle"]
+        self.jumpSpeed = 100.0
+        self.scale = .39
+        self.isJumping = False
+        self.isFalling = True
+        self.rect = self.state.getScaledImage(self.scale).get_rect()
+        self.x = 50
+        self.y = 450 - self.rect.height
+        self.flip = False
+        self.jumpAcceleration = 800
+        self.jumpVelocity = 0
+        self.last_shot = 100
+        self.dead = False
+        self.dead_count = 0
+        self.radius = self.rect.width/2
+        self.nibby = 0
+
+    def update(self,dt):
+        self.state.update(30)
+        self.mask = pygame.mask.Mask((self.rect.width,self.rect.height))
+        self.mask.set_at((self.rect.center[0],self.rect.center[1]),1)
+        
+        if self.dead:
+            self.state = self.image["die"]
+            self.dead_count += 1
+            if self.dead_count >= 33:
+                self.kill()
+                self.dead_count = 0
+
+        if self.isJumping or self.isFalling:
+            self.y += self.jumpVelocity * (30 / 1000.0)
+            self.jumpVelocity += self.jumpAcceleration * (30 / 1000.0)
+            if self.jumpVelocity >= 0:
+                self.state = self.image["fall"]
+            elif self.jumpVelocity < 0 :
+                self.state = self.image["jump"]
+
+        if self.y < 450 - 171:
+            self.isFalling = True
+            self.isJumping = False
+
+        if self.y > 450 - 171:
+            self.y = 450 - 171
+            self.isFalling = False
+            self.isJumping = False
+
+        key = pygame.key.get_pressed()
+
+        if key[pygame.K_d] and not key[pygame.K_w]:
+            self.state = self.image["run"]
+            self.flip = False
+
+        if key[pygame.K_d] and key[pygame.K_w] and self.y == 450 - 171:
+            self.flip = False
+            self.isJumping = True
+            self.jumpVelocity = -380
+
+        if key[pygame.K_a]:
+            self.state = self.image["run"]
+            self.flip = True
+
+        if key[pygame.K_w] and self.y == 450 - 171:
+            self.state = self.image["jump"]
+            self.isJumping = True
+            self.jumpVelocity = -400
+
+        if not (key[pygame.K_a] or key[pygame.K_d]) and not(self.isFalling or self.isJumping):
+            self.state = self.image["idle"]
+
+        if key[pygame.K_j] and not (key[pygame.K_d] or key[pygame.K_a] or key[pygame.K_h]):
+            self.state = self.image["throw"]
+            if time.time() - self.last_shot > 0.5:
+                kunai_list.add(Kunai(self.x+100,self.y+100))
+                self.last_shot = time.time()
+            
+        if key[pygame.K_j] and key[pygame.K_d] and not (key[pygame.K_a] or key[pygame.K_h]):
+            self.state = self.image["throw"]
+            if time.time() - self.last_shot > 0.5:
+                kunai_list.add(Kunai(self.x+100,self.y+100))
+                self.last_shot = time.time()
+        
+        if key[pygame.K_j] and key[pygame.K_a] and not (key[pygame.K_d] or key[pygame.K_h]):
+            self.state = self.image["throw"]
+            if time.time() - self.last_shot > 0.5:
+                kunai_list.add(Kunai(self.x+100,self.y+100))
+                self.last_shot = time.time()
+
+        if key[pygame.K_h] and not (key[pygame.K_d] or key[pygame.K_a] or key[pygame.K_j]):
+            self.state = self.image["attack"]
+            
+        if key[pygame.K_h] and key[pygame.K_d] and not (key[pygame.K_a] or key[pygame.K_j]):
+            self.state = self.image["attack"]
+        
+        if key[pygame.K_h] and key[pygame.K_a] and not (key[pygame.K_d] or key[pygame.K_j]):
+            self.state = self.image["attack"]
+        
+        hits = pygame.sprite.spritecollide(self,fireball_list,True,pygame.sprite.collide_mask)
+
+        if hits:
+            print "Collide"
+            
+    def draw(self,screen):
+        if self.flip:
+                img = pygame.transform.flip(self.state.getScaledImage(self.scale), True, False)
+        else:
+            img = self.state.getScaledImage(self.scale)
+        
+        screen.blit(img,(self.x,self.y))
+
+class Tile(pygame.sprite.Sprite):
+        def __init__(self,grnd, type=None):
+            pygame.sprite.Sprite.__init__(self)
+            self.ground = grnd
+            self.type = type
+            if self.type != "acid":
+                self.image = pygame.transform.scale(pygame.image.load("Tiles/BGTile (2).png"),(100,50))
+            elif self.type == "acid":
+                self.image = pygame.transform.scale(pygame.image.load("Tiles/Acid (2).png"),(100,50))
+            self.scale = .5
+            self.rx = 0
+            self.x = 700
+            self.rect = self.image.get_rect()
+            self.y = 500 - self.rect.height
+
+        def update(self,dt):
+            self.mask = pygame.mask.from_surface(self.image)
+            #self.x -= 10
+            if self.x + self.rect.width < 0 and self.type!='acid':
+                if random.randint(0,10) < self.ground.acid_tile_occourance:
+                    if not self.contains_acid():
+
+                        acid = Tile(500,type='acid')
+
+                        self.ground.add(acid)
+                        pass
+                self.x =len(self.ground.ground_tiles)*self.rect.width + self.x
+            if self.x + self.rect.width < 0 and self.type == 'acid':
+                self.kill();
+
+        def draw(self, screen):
+            screen.blit(self.image, (self.x + (self.rect.width * self.rx), self.y))
+
+        def contains_acid(self):
+            for t in self.ground.ground_tiles:
+                if t.type == 'acid':
+                    return True
+            return False
+    
+class Ground (pygame.sprite.Sprite):
+    def __init__(self, acid=6):
+        pygame.sprite.Sprite.__init__(self)
+        self.ground_tiles = SpriteGroup()
+        x = 0
+        cx = 0
+        self.acid_tile_occourance = acid
+        while True:
+            t = Tile(self,500)
+            t.x,t.y = t.rect.width * x, 500 - t.rect.height
+            cx = t.x
+            if cx > 800 + t.rect.width:
+                break
+            else:
+                self.ground_tiles.add(t)
+            x+=1
+
+    def add(self, tile):
+        tile.x, tile.y = tile.rect.width * (len(self.ground_tiles.sprites()) - 1.1),  500 - tile.rect.height
+        self.ground_tiles.add(tile)
+
+    def update(self, dt):
+        self.ground_tiles.update(dt)
+
+    def draw(self, screen):
+        self.ground_tiles.draw(screen)
+
+class Kunai(pygame.sprite.Sprite):
+    def __init__(self,x,y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.transform.scale(pygame.image.load("png/Kunai.png"),(90,20))
+        self.x = x
+        self.y = y
+        self.rect = self.image.get_rect()
+        self.speed = 10
+
+    def update(self):
+        self.x += self.speed
+        if self.x > 800 + self.rect.width:
+            self.kill()
+
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect()
+
+    def draw(self,screen):
+        screen.blit(self.image,(self.x,self.y))
+
+class Robot(pygame.sprite.Sprite):
+    def __init__(self,x):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = {
+            "go": Animation([
+                "robot/go/go_1.png",
+                "robot/go/go_2.png",
+                "robot/go/go_3.png",
+                "robot/go/go_4.png",
+                "robot/go/go_5.png",
+            ],100,True),
+            "idle": Animation([
+                "robot/idle/idle_1.png",
+                "robot/idle/idle_2.png",
+                "robot/idle/idle_3.png",
+                "robot/idle/idle_4.png",
+                "robot/idle/idle_5.png",
+            ],100,True),
+            "die": Animation([
+                "robot/die/die_1.png",
+                "robot/die/die_2.png",
+                "robot/die/die_3.png",
+                "robot/die/die_4.png",
+                "robot/die/die_5.png",
+                "robot/die/die_6.png",
+                "robot/die/die_7.png",
+                "robot/die/die_8.png",
+                "robot/die/die_9.png",
+            ],100,True)
+
+        }
+        self.state = self.image["idle"]
+        self.scale = .4
+        self.rect = self.state.getScaledImage(self.scale).get_rect()
+        self.x = x
+        self.y = 450 - self.rect.height
+        self.speed = 3
+        self.last_shot = 100
+        self.isdead = False
+        self.dead_count = 0
+        self.shooting = False
+        self.life = 2
+
+    def update(self,dt):
+        
+        self.rect = self.state.get_rect()
+        self.mask = pygame.mask.Mask((self.rect.width,self.rect.height))
+        self.mask.set_at((self.rect.center[0],self.rect.center[1]),1)
+        
+        if self.shooting:
+            if time.time() - self.last_shot > 1:
+                fireball_list.add(Fireball(self.x,self.y+50))
+                self.last_shot = time.time()
+
+        if self.isdead:
+            self.state = self.image["die"]
+            self.dead_count += 1
+            if self.dead_count >= 20:
+                self.kill()
+
+        if self.life <= 0:
+            self.isdead = True
+
+        if pygame.sprite.groupcollide(robot_list,kunai_list,False,True,pygame.sprite.collide_mask):
+            self.life -= 1
+
+        self.shooting = True
+        self.state.update(dt)
+
+    def draw(self,screen):
+        img = self.state.getScaledImage(self.scale)
+        screen.blit(img,(self.x,self.y))
+
+class Fireball(pygame.sprite.Sprite,Animation):
+    def __init__(self,x,y):
+        pygame.sprite.Sprite.__init__(self)
+        self.image = pygame.transform.flip(pygame.transform.scale(pygame.image.load("png/Kunai.png"),(90,20)),True,False)
+        self.scale = .4
+        self.rect = self.image.get_rect()
+        self.y = y
+        self.x = x
+        self.speed = 8
+        self.burning = True
+        self.count = 0
+        self.radius = self.rect.width/2
+
+    def update(self):
+        self.rect = self.image.get_rect()
+        self.mask = pygame.mask.from_surface(self.image)
+        
+        self.x -= self.speed
+        if self.x < 0 - self.rect.width:
+            self.kill()
+
+    def draw(self,screen):
+        screen.blit(self.image,(self.x,self.y))

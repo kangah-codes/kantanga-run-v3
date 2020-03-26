@@ -1,0 +1,47 @@
+import pygame, math, time, random
+from required import Animation, SpriteGroup
+from Sprites import Player,Tile,Ground,Robot
+from Sprites import player_list,kunai_list,robot_list,fireball_list
+pygame.init()
+
+# Defining global variables
+screen = pygame.display.set_mode((800,500))
+pygame.display.set_caption("Katanga Run")
+pygame.display.set_icon(pygame.transform.rotate(pygame.image.load("png/Kunai.png"),90))
+white = (255,255,255)
+
+clock = pygame.time.Clock()
+fps = 60
+
+player = Player()
+ground = Ground()
+
+#Adding Sprites
+player_list.add(player)
+robot_list.add(Robot(600))
+
+running = True
+
+while running:
+    clock.tick(fps)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    screen.fill(white)
+
+    # player_list.draw(screen)
+    kunai_list.draw(screen)
+    robot_list.draw(screen)
+    player_list.draw(screen)
+    fireball_list.draw(screen)
+    ground.draw(screen)
+
+    player_list.update(fps)
+    kunai_list.update()
+    robot_list.update(30)
+    fireball_list.update()
+    ground.update(fps)
+
+    pygame.display.update()
+            
